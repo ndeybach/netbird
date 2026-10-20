@@ -80,6 +80,9 @@ server:
   disableAnonymousMetrics: false
   disableGeoliteUpdate: false
 
+  # Skip creating the allow-all "Default" policy in new accounts
+  disableDefaultPolicy: false
+
   # Embedded authentication/identity provider (Dex) configuration (always enabled)
   auth:
     # OIDC issuer URL - must be publicly accessible
