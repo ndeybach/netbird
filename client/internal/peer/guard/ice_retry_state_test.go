@@ -1,9 +1,12 @@
 package guard
 
 import (
+	"os"
 	"testing"
+	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func newTestRetryState() *iceRetryState {
@@ -99,5 +102,43 @@ func TestICERetryState_ResetIsIdempotent(t *testing.T) {
 
 	if s.hourlyC() != nil {
 		t.Fatalf("hourlyC non-nil after double reset")
+	}
+}
+
+func TestGetICERetryInterval(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  time.Duration
+	}{
+		{name: "seconds", value: "120", want: 2 * time.Minute},
+		{name: "zero", value: "0", want: defaultICERetryInterval},
+		{name: "negative", value: "-5", want: defaultICERetryInterval},
+		{name: "not a number", value: "5m", want: defaultICERetryInterval},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(envICERetryInterval, tt.value)
+			assert.Equal(t, tt.want, getICERetryInterval(), "interval for %q", tt.value)
+		})
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		t.Setenv(envICERetryInterval, "")
+		os.Unsetenv(envICERetryInterval)
+		assert.Equal(t, defaultICERetryInterval, getICERetryInterval(), "interval when unset")
+	})
+}
+
+func TestICERetryState_EnterHourlyModeUsesConfiguredInterval(t *testing.T) {
+	t.Setenv(envICERetryInterval, "1")
+	s := newTestRetryState()
+	s.enterHourlyMode()
+	defer s.reset()
+
+	select {
+	case <-s.hourlyC():
+	case <-time.After(3 * time.Second):
+		t.Fatalf("no retry tick within 3s with %s=1", envICERetryInterval)
 	}
 }

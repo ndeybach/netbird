@@ -9,8 +9,9 @@ import (
 const (
 	// maxICERetries is the maximum number of ICE offer attempts when relay is connected
 	maxICERetries = 3
-	// iceRetryInterval is the periodic retry interval after ICE retries are exhausted
-	iceRetryInterval = 1 * time.Hour
+	// defaultICERetryInterval is the periodic retry interval after ICE retries are exhausted,
+	// unless NB_ICE_RETRY_INTERVAL sets another
+	defaultICERetryInterval = 1 * time.Hour
 )
 
 // iceRetryState tracks the limited ICE retry attempts when relay is already connected.
@@ -47,10 +48,11 @@ func (s *iceRetryState) shouldRetry() bool {
 	return false
 }
 
-// enterHourlyMode starts the hourly retry ticker. Must be called after shouldRetry returns false.
+// enterHourlyMode starts the periodic retry ticker. Must be called after shouldRetry returns false.
 func (s *iceRetryState) enterHourlyMode() {
-	s.log.Infof("ICE retries exhausted (%d/%d), switching to hourly retry", maxICERetries, maxICERetries)
-	s.hourly = time.NewTicker(iceRetryInterval)
+	interval := getICERetryInterval()
+	s.log.Infof("ICE retries exhausted (%d/%d), switching to retry every %s", maxICERetries, maxICERetries, interval)
+	s.hourly = time.NewTicker(interval)
 }
 
 func (s *iceRetryState) hourlyC() <-chan time.Time {
